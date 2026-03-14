@@ -1,0 +1,30 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Serverless backend for F&B ordering system",
+  "type": "module",
+  "main": "src/handlers/createOrder.js",
+  "scripts": {
+    "dev": "serverless offline",
+    "deploy": "serverless deploy",
+    "remove": "serverless remove",
+    "package": "serverless package"
+  },
+  "keywords": [
+    "aws",
+    "serverless",
+    "lambda"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.916.0",
+    "@aws-sdk/client-sns": "^3.916.0",
+    "@aws-sdk/lib-dynamodb": "^3.1009.0",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "serverless": "^3.40.0",
+    "serverless-offline": "^13.9.0"
+  }
+}

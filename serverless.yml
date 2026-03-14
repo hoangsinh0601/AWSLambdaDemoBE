@@ -1,0 +1,140 @@
+service: fb-ordering-backend
+
+frameworkVersion: "3"
+
+useDotenv: true
+
+plugins:
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3001
+    noPrependStageInUrl: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ap-southeast-1
+  stage: ${opt:stage, 'dev'}
+  environment:
+    ORDERS_TABLE_NAME: !Ref OrdersTable
+    NEW_ORDER_TOPIC_ARN: !Ref NewOrderTopic
+  httpApi:
+    cors:
+      allowedOrigins:
+        - "*"
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - OPTIONS
+        - POST
+        - GET
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:UpdateItem
+        - dynamodb:Query
+        - dynamodb:Scan
+      Resource:
+        - Fn::GetAtt:
+            - OrdersTable
+            - Arn
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource:
+        - Ref: NewOrderTopic
+    - Effect: Allow
+      Action:
+        - sqs:ReceiveMessage
+        - sqs:DeleteMessage
+        - sqs:GetQueueAttributes
+      Resource:
+        - Fn::GetAtt:
+            - InventoryQueue
+            - Arn
+
+functions:
+  createOrder:
+    handler: src/handlers/createOrder.handler
+    events:
+      - httpApi:
+          path: /orders
+          method: post
+  listOrders:
+    handler: src/handlers/listOrders.handler
+    events:
+      - httpApi:
+          path: /orders
+          method: get
+  processQueue:
+    handler: src/handlers/processQueue.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - InventoryQueue
+              - Arn
+          batchSize: 10
+
+resources:
+  Resources:
+    OrdersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: orderId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: orderId
+            KeyType: HASH
+    NewOrderTopic:
+      Type: AWS::SNS::Topic
+      Properties: {}
+    InventoryQueue:
+      Type: AWS::SQS::Queue
+      Properties: {}
+    InventoryQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref InventoryQueue
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal: "*"
+              Action: sqs:SendMessage
+              Resource:
+                Fn::GetAtt:
+                  - InventoryQueue
+                  - Arn
+              Condition:
+                ArnEquals:
+                  aws:SourceArn:
+                    Ref: NewOrderTopic
+    InventoryQueueSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn:
+          Ref: NewOrderTopic
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - InventoryQueue
+            - Arn
+        RawMessageDelivery: true
+
+    EmailNotificationSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: !Ref NewOrderTopic
+        Protocol: email
+        Endpoint: phamngohoangsinh@gmail.com
+
+
