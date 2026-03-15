@@ -23,3 +23,27 @@ export const listOrders = {
     },
   ],
 };
+
+export const getOrder = {
+  handler: `${basePath}/get.handler`,
+  events: [
+    {
+      httpApi: {
+        path: "/orders/{id}",
+        method: "get",
+      },
+    },
+  ],
+};
+
+export const updateOrderStatus = {
+  handler: `${basePath}/updateStatus.handler`,
+  events: [
+    {
+      httpApi: {
+        path: "/orders/{id}/status",
+        method: "patch",
+      },
+    },
+  ],
+};

@@ -1,17 +1,29 @@
-type LogLevel = "INFO" | "ERROR";
+type LogLevel = "INFO" | "WARN" | "ERROR";
 
-const writeLog = (level: LogLevel, message: string, metadata?: Record<string, unknown>) => {
+interface LogContext {
+  requestId?: string;
+  orderId?: string;
+  userId?: string;
+  [key: string]: unknown;
+}
+
+const writeLog = (level: LogLevel, message: string, context?: LogContext) => {
   const payload = {
     level,
     message,
     timestamp: new Date().toISOString(),
-    ...(metadata ? { metadata } : {}),
+    ...(context ?? {}),
   };
 
-  console.log(JSON.stringify(payload));
+  if (level === "ERROR") {
+    console.error(JSON.stringify(payload));
+  } else {
+    console.log(JSON.stringify(payload));
+  }
 };
 
 export const logger = {
-  info: (message: string, metadata?: Record<string, unknown>) => writeLog("INFO", message, metadata),
-  error: (message: string, metadata?: Record<string, unknown>) => writeLog("ERROR", message, metadata),
+  info: (message: string, context?: LogContext) => writeLog("INFO", message, context),
+  warn: (message: string, context?: LogContext) => writeLog("WARN", message, context),
+  error: (message: string, context?: LogContext) => writeLog("ERROR", message, context),
 };

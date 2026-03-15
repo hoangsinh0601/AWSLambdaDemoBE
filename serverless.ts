@@ -1,5 +1,9 @@
-import { createOrder, listOrders } from "./src/functions/order";
+import { createOrder, listOrders, getOrder, updateOrderStatus } from "./src/functions/order";
+import { listMenu, seedMenu } from "./src/functions/menu";
+import { adminListMenu, adminCreateMenu, adminUpdateMenu, adminDeleteMenu } from "./src/functions/admin/menu";
+import { adminListInventory, adminUpdateInventory } from "./src/functions/admin/inventory";
 import { processQueue } from "./src/functions/inventory";
+import { loginUser, registerUser, getProfile } from "./src/functions/auth";
 
 const serverlessConfiguration = {
   service: "restaurant-serverless-api",
@@ -7,6 +11,7 @@ const serverlessConfiguration = {
   useDotenv: true,
   plugins: ["serverless-esbuild", "serverless-offline"],
   custom: {
+    stage: "${opt:stage, 'dev'}",
     esbuild: {
       bundle: true,
       minify: false,
@@ -23,40 +28,82 @@ const serverlessConfiguration = {
     name: "aws",
     runtime: "nodejs20.x",
     region: "ap-southeast-1",
-    stage: "${opt:stage, 'dev'}",
+    stage: "${self:custom.stage}",
     environment: {
       ORDERS_TABLE_NAME: { Ref: "OrdersTable" },
+      MENU_TABLE_NAME: { Ref: "MenuItemsTable" },
+      INVENTORY_TABLE_NAME: { Ref: "InventoryTable" },
+      USERS_TABLE_NAME: { Ref: "UsersTable" },
       NEW_ORDER_TOPIC_ARN: { Ref: "NewOrderTopic" },
       INVENTORY_QUEUE_URL: { Ref: "InventoryQueue" },
+      STAGE: "${self:custom.stage}",
+      JWT_SECRET: "${env:JWT_SECRET, 'dev-jwt-secret'}",
+      EMAIL_SOURCE: "${env:EMAIL_SOURCE, ''}",
+      ADMIN_EMAILS: "${env:ADMIN_EMAILS, ''}",
+      DEFAULT_ADMIN_EMAIL: "${env:DEFAULT_ADMIN_EMAIL, 'admin@demo.local'}",
+      DEFAULT_ADMIN_PASSWORD: "${env:DEFAULT_ADMIN_PASSWORD, 'Admin@123456'}",
+      DEFAULT_ADMIN_NAME: "${env:DEFAULT_ADMIN_NAME, 'Default Admin'}",
     },
     httpApi: {
       cors: {
         allowedOrigins: ["*"],
         allowedHeaders: ["Content-Type", "Authorization"],
-        allowedMethods: ["OPTIONS", "POST", "GET"],
+        allowedMethods: ["OPTIONS", "POST", "GET", "PATCH", "DELETE"],
       },
     },
-    iamRoleStatements: [
-      {
-        Effect: "Allow",
-        Action: ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:Scan"],
-        Resource: [{ "Fn::GetAtt": ["OrdersTable", "Arn"] }],
+    iam: {
+      role: {
+        statements: [
+          {
+            Effect: "Allow",
+            Action: ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:Scan"],
+            Resource: [
+              { "Fn::GetAtt": ["OrdersTable", "Arn"] },
+              { "Fn::GetAtt": ["MenuItemsTable", "Arn"] },
+              { "Fn::GetAtt": ["InventoryTable", "Arn"] },
+              { "Fn::GetAtt": ["UsersTable", "Arn"] },
+            ],
+          },
+          {
+            Effect: "Allow",
+            Action: ["dynamodb:BatchWriteItem"],
+            Resource: [{ "Fn::GetAtt": ["MenuItemsTable", "Arn"] }],
+          },
+          {
+            Effect: "Allow",
+            Action: ["sns:Publish"],
+            Resource: [{ Ref: "NewOrderTopic" }],
+          },
+          {
+            Effect: "Allow",
+            Action: ["ses:SendEmail", "ses:SendRawEmail"],
+            Resource: ["*"],
+          },
+          {
+            Effect: "Allow",
+            Action: ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+            Resource: [{ "Fn::GetAtt": ["InventoryQueue", "Arn"] }],
+          },
+        ],
       },
-      {
-        Effect: "Allow",
-        Action: ["sns:Publish"],
-        Resource: [{ Ref: "NewOrderTopic" }],
-      },
-      {
-        Effect: "Allow",
-        Action: ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
-        Resource: [{ "Fn::GetAtt": ["InventoryQueue", "Arn"] }],
-      },
-    ],
+    },
   },
   functions: {
+    registerUser,
+    loginUser,
+    getProfile,
     createOrder,
     listOrders,
+    getOrder,
+    updateOrderStatus,
+    listMenu,
+    seedMenu,
+    adminListMenu,
+    adminCreateMenu,
+    adminUpdateMenu,
+    adminDeleteMenu,
+    adminListInventory,
+    adminUpdateInventory,
     processQueue,
   },
   resources: {
@@ -67,6 +114,30 @@ const serverlessConfiguration = {
           BillingMode: "PAY_PER_REQUEST",
           AttributeDefinitions: [{ AttributeName: "orderId", AttributeType: "S" }],
           KeySchema: [{ AttributeName: "orderId", KeyType: "HASH" }],
+        },
+      },
+      MenuItemsTable: {
+        Type: "AWS::DynamoDB::Table",
+        Properties: {
+          BillingMode: "PAY_PER_REQUEST",
+          AttributeDefinitions: [{ AttributeName: "menuItemId", AttributeType: "S" }],
+          KeySchema: [{ AttributeName: "menuItemId", KeyType: "HASH" }],
+        },
+      },
+      InventoryTable: {
+        Type: "AWS::DynamoDB::Table",
+        Properties: {
+          BillingMode: "PAY_PER_REQUEST",
+          AttributeDefinitions: [{ AttributeName: "menuItemId", AttributeType: "S" }],
+          KeySchema: [{ AttributeName: "menuItemId", KeyType: "HASH" }],
+        },
+      },
+      UsersTable: {
+        Type: "AWS::DynamoDB::Table",
+        Properties: {
+          BillingMode: "PAY_PER_REQUEST",
+          AttributeDefinitions: [{ AttributeName: "userId", AttributeType: "S" }],
+          KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
         },
       },
       NewOrderTopic: {
@@ -114,6 +185,14 @@ const serverlessConfiguration = {
           TopicArn: { Ref: "NewOrderTopic" },
           Protocol: "email",
           Endpoint: "phamngohoangsinh@gmail.com",
+        },
+      },
+    },
+    Outputs: {
+      ApiUrl: {
+        Description: "HTTP API URL",
+        Value: {
+          "Fn::Join": ["", ["https://", { Ref: "HttpApi" }, ".execute-api.", { Ref: "AWS::Region" }, ".amazonaws.com"]],
         },
       },
     },
