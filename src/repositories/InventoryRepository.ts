@@ -65,4 +65,13 @@ export class InventoryRepository {
       })
     );
   }
+
+  async put(item: InventoryItem): Promise<void> {
+    await dynamoDbDocumentClient.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: item,
+      })
+    );
+  }
 }

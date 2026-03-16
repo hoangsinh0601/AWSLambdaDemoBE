@@ -1,7 +1,7 @@
 import { createOrder, listOrders, getOrder, updateOrderStatus } from "./src/functions/order";
 import { listMenu, seedMenu } from "./src/functions/menu";
 import { adminListMenu, adminCreateMenu, adminUpdateMenu, adminDeleteMenu } from "./src/functions/admin/menu";
-import { adminListInventory, adminUpdateInventory } from "./src/functions/admin/inventory";
+import { adminListInventory, adminUpdateInventory, adminGetInventorySummary } from "./src/functions/admin/inventory";
 import { processQueue } from "./src/functions/inventory";
 import { loginUser, registerUser, getProfile } from "./src/functions/auth";
 
@@ -33,6 +33,7 @@ const serverlessConfiguration = {
       ORDERS_TABLE_NAME: { Ref: "OrdersTable" },
       MENU_TABLE_NAME: { Ref: "MenuItemsTable" },
       INVENTORY_TABLE_NAME: { Ref: "InventoryTable" },
+      INVENTORY_HISTORY_TABLE_NAME: { Ref: "InventoryHistoryTable" },
       USERS_TABLE_NAME: { Ref: "UsersTable" },
       NEW_ORDER_TOPIC_ARN: { Ref: "NewOrderTopic" },
       INVENTORY_QUEUE_URL: { Ref: "InventoryQueue" },
@@ -61,6 +62,7 @@ const serverlessConfiguration = {
               { "Fn::GetAtt": ["OrdersTable", "Arn"] },
               { "Fn::GetAtt": ["MenuItemsTable", "Arn"] },
               { "Fn::GetAtt": ["InventoryTable", "Arn"] },
+              { "Fn::GetAtt": ["InventoryHistoryTable", "Arn"] },
               { "Fn::GetAtt": ["UsersTable", "Arn"] },
             ],
           },
@@ -104,6 +106,7 @@ const serverlessConfiguration = {
     adminDeleteMenu,
     adminListInventory,
     adminUpdateInventory,
+    adminGetInventorySummary,
     processQueue,
   },
   resources: {
@@ -130,6 +133,14 @@ const serverlessConfiguration = {
           BillingMode: "PAY_PER_REQUEST",
           AttributeDefinitions: [{ AttributeName: "menuItemId", AttributeType: "S" }],
           KeySchema: [{ AttributeName: "menuItemId", KeyType: "HASH" }],
+        },
+      },
+      InventoryHistoryTable: {
+        Type: "AWS::DynamoDB::Table",
+        Properties: {
+          BillingMode: "PAY_PER_REQUEST",
+          AttributeDefinitions: [{ AttributeName: "historyId", AttributeType: "S" }],
+          KeySchema: [{ AttributeName: "historyId", KeyType: "HASH" }],
         },
       },
       UsersTable: {

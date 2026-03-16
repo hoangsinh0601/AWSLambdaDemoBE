@@ -15,3 +15,11 @@ export interface InventoryAdjustmentResult {
   remainingToday: number;
   inStock: boolean;
 }
+
+export interface InventorySummaryStats {
+  totalMenuItems: number;
+  inStockItems: number;
+  outOfStockItems: number;
+  totalCurrentStock: number;
+  totalRemainingToday: number;
+}
